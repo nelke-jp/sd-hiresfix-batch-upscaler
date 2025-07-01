@@ -1,25 +1,23 @@
 import os
-import re
 import base64
 import shutil
 import requests
 import logging
 from requests.exceptions import RequestException
-from PIL import Image, PngImagePlugin
 
 # ===============================
 # Directories
 # ===============================
 
-# Input folder
+# Input directory
 INPUT_DIR = r"your input directory"
-# Output folder
+# Output directory
 OUTPUT_DIR = r"your output directory"
-# Folder to move original files after processing (if None, do not move)
+# Directory to move original files after processing (if None, do not move)
 DONE_DIR = r"your done directory"
 
 # ===============================
-# Hires.fix Constants
+# Hires.fix
 # ===============================
 
 # Upscaler
@@ -32,14 +30,13 @@ HR_SCALE = 2
 HR_SECOND_PASS_STEPS = 20
 
 # ===============================
-# API endpoint
+# URL
 # ===============================
 
-# txt2img API endpoint
-API_URL = "http://127.0.0.1:7860/sdapi/v1/txt2img"
+BASE_URL = "http://127.0.0.1:7860"
 
 # ===============================
-# Setup logging
+# Logging
 # ===============================
 logging.basicConfig(
     level=logging.INFO,
@@ -47,46 +44,44 @@ logging.basicConfig(
 )
 
 
-def parse_parameters(parameters: str):
-    """
-    Parse PNG Info parameters.
-    Returns ready-to-use payload dict or None if required fields are missing.
-    """
-    parts = parameters.split("Negative prompt:")
-    prompt = parts[0].strip() if len(parts) > 0 else None
+def get_parameters(image_path: str) -> dict | None:
+    try:
+        with open(image_path, "rb") as f:
+            encoded_image = base64.b64encode(f.read()).decode("utf-8")
+        payload = {"image": f"data:image/png;base64,{encoded_image}"}
+        response = requests.post(f"{BASE_URL}/sdapi/v1/png-info", json=payload)
+        response.raise_for_status()
+        return response.json().get("parameters")
+    except RequestException as e:
+        logging.warning(
+            f"❌ Failed to get PNG info for {os.path.basename(image_path)}: {e}"
+        )
+        return None
 
-    negative_prompt, others = "", ""
-    if len(parts) > 1:
-        negative_prompt, others = parts[1].split("\n", 1)
-        negative_prompt = negative_prompt.strip()
 
-    settings = {}
-    for line in others.strip().split(", "):
-        if ": " in line:
-            k, v = line.split(": ", 1)
-            settings[k.strip()] = v.strip()
-
-    width, height = None, None
-    if "Size" in settings:
-        match = re.match(r"(\d+)x(\d+)", settings["Size"])
-        if match:
-            width, height = int(match.group(1)), int(match.group(2))
-
-    steps = int(settings.get("Steps")) if "Steps" in settings else None
-    sampler_name = settings.get("Sampler") if "Sampler" in settings else None
-    cfg_scale = float(settings.get("CFG scale")) if "CFG scale" in settings else None
-    seed = int(settings.get("Seed")) if "Seed" in settings else None
-
-    required = {
-        "prompt": prompt,
-        "negative_prompt": negative_prompt,
-        "steps": steps,
-        "sampler_name": sampler_name,
-        "cfg_scale": cfg_scale,
-        "seed": seed,
-        "width": width,
-        "height": height,
-    }
+def create_payload(parameters: dict) -> dict | None:
+    try:
+        required = {
+            "prompt": parameters.get("Prompt"),
+            "negative_prompt": parameters.get("Negative prompt"),
+            "sampler_name": parameters.get("Sampler"),
+            "steps": int(parameters.get("Steps")) if parameters.get("Steps") else None,
+            "cfg_scale": (
+                float(parameters.get("CFG scale"))
+                if parameters.get("CFG scale")
+                else None
+            ),
+            "seed": int(parameters.get("Seed")) if parameters.get("Seed") else None,
+            "width": (
+                int(parameters.get("Size-1")) if parameters.get("Size-1") else None
+            ),
+            "height": (
+                int(parameters.get("Size-2")) if parameters.get("Size-2") else None
+            ),
+        }
+    except ValueError as e:
+        logging.warning(f"❌ Invalid numeric value: {e}")
+        return None
 
     missing = [k for k, v in required.items() if v is None or v == ""]
     if missing:
@@ -99,45 +94,36 @@ def parse_parameters(parameters: str):
         "denoising_strength": DENOISING_STRENGTH,
         "hr_scale": HR_SCALE,
         "hr_upscaler": HR_UPSCALER,
-        "hr_second_pass_steps": HR_SECOND_PASS_STEPS or steps,
+        "hr_second_pass_steps": HR_SECOND_PASS_STEPS or required["steps"],
     }
 
     return payload
 
 
-def hires_upscale(file_path: str, filename: str) -> None:
-    """
-    Process a single PNG image with hires fix.
-    """
-    if not filename.lower().endswith(".png"):
-        return
-
-    with PngImagePlugin.PngImageFile(file_path) as img:
-        parameters = img.info.get("parameters")
-
-    if not parameters:
-        logging.warning(f"⏭️ Skipped : {filename} (No parameters found)")
-        return
-
-    payload = parse_parameters(parameters)
-    if not payload:
-        logging.warning(f"⏭️ Skipped : {filename} (Invalid parameters)")
-        return
-
+def hires_upscale(filename: str) -> None:
     logging.info(f"🚀 Processing : {filename}")
 
+    file_path = os.path.join(INPUT_DIR, filename)
+    parameters = get_parameters(file_path)
+    if not parameters:
+        logging.warning(f"⏭️ Skipped: {filename} (No valid parameters)")
+        return
+
+    payload = create_payload(parameters)
+    if not payload:
+        logging.warning(f"⏭️ Skipped: {filename} (Invalid or missing parameters)")
+        return
+
     try:
-        response = requests.post(API_URL, json=payload)
+        response = requests.post(f"{BASE_URL}/sdapi/v1/txt2img", json=payload)
         response.raise_for_status()
     except RequestException as e:
         logging.error(f"❌ Request failed for {filename} : {e}")
         return
 
-    result = response.json()
-    for i, image in enumerate(result.get("images", [])):
+    for i, image in enumerate(response.json().get("images", [])):
         output_path = os.path.join(
-            OUTPUT_DIR,
-            f"{os.path.splitext(filename)[0]}_hires.png"
+            OUTPUT_DIR, f"{os.path.splitext(filename)[0]}_hires.png"
         )
         with open(output_path, "wb") as f:
             f.write(base64.b64decode(image))
@@ -149,15 +135,13 @@ def hires_upscale(file_path: str, filename: str) -> None:
 
 
 def main():
-    """
-    Main processing loop.
-    """
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     if DONE_DIR:
         os.makedirs(DONE_DIR, exist_ok=True)
 
     for filename in os.listdir(INPUT_DIR):
-        hires_upscale(os.path.join(INPUT_DIR, filename), filename)
+        if filename.lower().endswith(".png"):
+            hires_upscale(filename)
 
     logging.info("✅ All images processed with Hires.fix.")
 
