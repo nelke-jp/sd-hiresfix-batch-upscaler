@@ -54,25 +54,28 @@ DONE_DIR = r"C:\StableDiffusion\upscale\done"
 
 Edit these values in `hires_batch_upscaler.py` as needed:
 
+**Example:**
+
 ```python
 # Upscaler
-DEFAULT_HR_UPSCALER = "4x-UltraSharp"
+HR_UPSCALER = "4x-UltraSharp"
 # Denoising strength
-DEFAULT_DENOISING_STRENGTH = 0.2
+DENOISING_STRENGTH = 0.2
 # Upscale factor
-DEFAULT_HR_SCALE = 2
+HR_SCALE = 2
 # Hires steps (if None, same as original sampling steps)
-DEFAULT_HR_SECOND_PASS_STEPS = 20
+HR_SECOND_PASS_STEPS = 20
 ```
 
 
-### 5. Set API endpoint settings
+### 5. Set URL settings
 
 Edit these values in `hires_batch_upscaler.py` as needed:
 
+**Example:**
+
 ```python
-# txt2img API endpoint
-API_URL = "http://127.0.0.1:7860/sdapi/v1/txt2img"
+BASE_URL = "http://127.0.0.1:7860"
 ```
 
 
@@ -145,7 +148,7 @@ The original processed images will be moved to the `DONE_DIR` folder.
 ## Requirements
 
 * Python 3.9+
-* Stable Diffusion WebUI(Automatic1111) running locally (`http://127.0.0.1:7860`)
+* Stable Diffusion WebUI(Automatic1111) running
 * Images must contain valid PNG Info metadata
 
 
