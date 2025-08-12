@@ -62,8 +62,6 @@ def get_parameters(image_path: str) -> dict | None:
 def create_payload(parameters: dict) -> dict | None:
     try:
         required = {
-            "prompt": parameters.get("Prompt"),
-            "negative_prompt": parameters.get("Negative prompt"),
             "sampler_name": parameters.get("Sampler"),
             "steps": int(parameters.get("Steps")) if parameters.get("Steps") else None,
             "cfg_scale": (
@@ -90,6 +88,8 @@ def create_payload(parameters: dict) -> dict | None:
 
     payload = {
         **required,
+        "prompt": parameters.get("Prompt"),
+        "negative_prompt": parameters.get("Negative prompt"),
         "enable_hr": True,
         "denoising_strength": DENOISING_STRENGTH,
         "hr_scale": HR_SCALE,
