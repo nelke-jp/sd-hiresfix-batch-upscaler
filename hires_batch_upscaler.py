@@ -21,7 +21,7 @@ DONE_DIR = r"your done directory"
 # ===============================
 
 # Upscaler
-HR_UPSCALER = "4x-UltraSharp"
+HR_UPSCALER = "ESRGAN_4x"
 # Denoising strength
 DENOISING_STRENGTH = 0.2
 # Upscale factor
