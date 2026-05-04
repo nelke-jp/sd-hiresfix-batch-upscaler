@@ -21,13 +21,15 @@ DONE_DIR = r"your done directory"
 # ===============================
 
 # Upscaler
-HR_UPSCALER = "ESRGAN_4x"
+HR_UPSCALER = "R-ESRGAN 4x+"
 # Denoising strength
 DENOISING_STRENGTH = 0.2
 # Upscale factor
 HR_SCALE = 2
-# Hires steps (if None, same as original sampling steps)
+# Hires steps (if 0 or None, same as original sampling steps)
 HR_SECOND_PASS_STEPS = 20
+# Hires CFG Scale (if 0 or None, same as original cfg scale)
+HR_CFG = 0
 
 # ===============================
 # URL
@@ -95,6 +97,7 @@ def create_payload(parameters: dict) -> dict | None:
         "hr_scale": HR_SCALE,
         "hr_upscaler": HR_UPSCALER,
         "hr_second_pass_steps": HR_SECOND_PASS_STEPS or required["steps"],
+        "hr_cfg": HR_CFG or required["cfg_scale"],
     }
 
     return payload

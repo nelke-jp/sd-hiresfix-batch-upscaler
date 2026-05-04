@@ -76,19 +76,22 @@ Edit these values in `hires_batch_upscaler.py` as needed:
 - HR_UPSCALER : the upscaler to use in Hires.fix
 - DENOISING_STRENGTH : the strength of denoising in Hires.fix
 - HR_SCALE : the upscale factor
-- HR_SECOND_PASS_STEPS : number of steps in Hires.fix (if `None`, the same as original sampling steps)
+- HR_SECOND_PASS_STEPS : number of steps in Hires.fix (if `0` or `None`, the same as original sampling steps)
+- HR_CFG : cfg scale in Hires.fix (if `0` or `None`, the same as original cfg scale)
 
 **Example:**
 
 ```python
 # Upscaler
-HR_UPSCALER = "ESRGAN_4x"
+HR_UPSCALER = "R-ESRGAN 4x+"
 # Denoising strength
 DENOISING_STRENGTH = 0.2
 # Upscale factor
 HR_SCALE = 2
-# Hires steps (if None, same as original sampling steps)
+# Hires steps (if 0 or None, same as original sampling steps)
 HR_SECOND_PASS_STEPS = 20
+# Hires CFG Scale (if 0 or None, same as original cfg scale)
+HR_CFG = 0
 ```
 
 
